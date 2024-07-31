@@ -1,0 +1,176 @@
+1. Configuração do Ambiente
+Instalação do Flask
+Instale o Flask e outras dependências:
+
+bash
+Copiar código
+pip install flask flask_sqlalchemy
+Crie um novo diretório para o projeto e navegue até ele:
+
+bash
+Copiar código
+mkdir football_bets
+cd football_bets
+Crie uma estrutura básica de diretórios:
+
+bash
+Copiar código
+mkdir templates static
+2. Backend com Flask
+Criação do Projeto Flask
+Crie o arquivo app.py para o backend:
+
+python
+Copiar código
+from flask import Flask, render_template, request, redirect, url_for
+from flask_sqlalchemy import SQLAlchemy
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite3'
+db = SQLAlchemy(app)
+
+class Match(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    team1 = db.Column(db.String(100), nullable=False)
+    team2 = db.Column(db.String(100), nullable=False)
+    match_date = db.Column(db.String(50), nullable=False)
+
+    def __repr__(self):
+        return f"<Match {self.team1} vs {self.team2}>"
+
+class Bet(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    match_id = db.Column(db.Integer, db.ForeignKey('match.id'), nullable=False)
+    bet_type = db.Column(db.String(2), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+
+    match = db.relationship('Match', backref=db.backref('bets', lazy=True))
+
+    def __repr__(self):
+        return f"<Bet {self.match.team1} vs {self.match.team2} - {self.bet_type}>"
+
+@app.route('/')
+def index():
+    matches = Match.query.all()
+    return render_template('index.html', matches=matches)
+
+@app.route('/place_bet/<int:match_id>', methods=['GET', 'POST'])
+def place_bet(match_id):
+    match = Match.query.get_or_404(match_id)
+    if request.method == 'POST':
+        bet_type = request.form['bet_type']
+        amount = float(request.form['amount'])
+        new_bet = Bet(match_id=match_id, bet_type=bet_type, amount=amount)
+        db.session.add(new_bet)
+        db.session.commit()
+        return redirect(url_for('index'))
+    return render_template('place_bet.html', match=match)
+
+if __name__ == '__main__':
+    db.create_all()
+    app.run(debug=True)
+Explicação:
+Flask: Cria a aplicação web.
+SQLAlchemy: ORM para interagir com o banco de dados SQLite.
+Modelos: Match e Bet para armazenar informações sobre partidas e apostas.
+3. Frontend com HTML
+Criação dos Templates
+Crie o arquivo templates/index.html para a página principal:
+
+html
+Copiar código
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Site de Apostas de Futebol</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Partidas</h1>
+    <ul>
+        {% for match in matches %}
+            <li>
+                {{ match.team1 }} vs {{ match.team2 }} - 
+                <a href="{{ url_for('place_bet', match_id=match.id) }}">Apostar</a>
+            </li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
+Crie o arquivo templates/place_bet.html para a página de apostas:
+
+html
+Copiar código
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fazer Aposta</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Fazer Aposta</h1>
+    <form method="post">
+        <label for="bet_type">Tipo de Aposta:</label>
+        <select id="bet_type" name="bet_type">
+            <option value="W">Vitória</option>
+            <option value="D">Empate</option>
+            <option value="L">Derrota</option>
+            <option value="YA">Cartão Amarelo</option>
+            <option value="YR">Cartão Vermelho</option>
+            <option value="S">Placar Exato</option>
+        </select>
+        <br>
+        <label for="amount">Valor:</label>
+        <input type="number" id="amount" name="amount" step="0.01" min="0" required>
+        <br>
+        <button type="submit">Apostar</button>
+    </form>
+    <a href="{{ url_for('index') }}">Voltar</a>
+</body>
+</html>
+Criação do CSS (opcional)
+Crie o arquivo static/style.css para adicionar estilos básicos:
+
+css
+Copiar código
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f4;
+}
+
+h1 {
+    color: #333;
+}
+
+ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+li {
+    background: #fff;
+    margin: 10px 0;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+4. Executar o Projeto
+Execute o servidor Flask:
+
+bash
+Copiar código
+python app.py
